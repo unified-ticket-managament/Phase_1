@@ -1,32 +1,43 @@
-# interaction.py
-
 import uuid
-from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, ForeignKey
+from sqlalchemy import Enum, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.database.base import Base
+from shared_models.database import Base
+from shared_models.mixins import TimestampMixin
+
+if TYPE_CHECKING:
+    from .ticket import Ticket
+    from .attachment import Attachment
 
 
-def utc_now():
-    return datetime.now(timezone.utc)
+class Interaction(TimestampMixin, Base):
+    """
+    Stores every interaction that occurs within a ticket.
 
+    Examples:
+    - Client Email
+    - Agent Reply
+    - Internal Note
+    - Status Change
+    - Phone Call
+    - SMS
+    """
 
-class Interaction(Base):
     __tablename__ = "interactions"
 
     interaction_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
-        default=uuid.uuid4
+        default=uuid.uuid4,
     )
 
     ticket_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("tickets.ticket_id"),
-        nullable=False
+        nullable=False,
     )
 
     type: Mapped[str] = mapped_column(
@@ -39,9 +50,9 @@ class Interaction(Base):
             "AGENT_REPLY",
             "FILE",
             "RESOLUTION",
-            name="interaction_type_enum"
+            name="interaction_type_enum",
         ),
-        nullable=False
+        nullable=False,
     )
 
     direction: Mapped[str] = mapped_column(
@@ -49,36 +60,33 @@ class Interaction(Base):
             "INBOUND",
             "OUTBOUND",
             "INTERNAL",
-            name="interaction_direction_enum"
+            name="interaction_direction_enum",
         ),
-        nullable=False
+        nullable=False,
     )
 
     content: Mapped[dict] = mapped_column(
         JSONB,
-        nullable=False
+        nullable=False,
     )
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=utc_now,
-        nullable=False
-    )
+    # -----------------------------
+    # Relationships
+    # -----------------------------
 
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=utc_now,
-        onupdate=utc_now,
-        nullable=False
-    )
-
-    ticket = relationship(
+    ticket: Mapped["Ticket"] = relationship(
         "Ticket",
-        back_populates="interactions"
+        back_populates="interactions",
     )
 
-    attachments = relationship(
+    attachments: Mapped[list["Attachment"]] = relationship(
         "Attachment",
         back_populates="interaction",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
+
+    def __repr__(self) -> str:
+        return (
+            f"<Interaction(interaction_id={self.interaction_id}, "
+            f"type='{self.type}')>"
+        )

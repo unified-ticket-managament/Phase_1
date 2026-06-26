@@ -1,5 +1,3 @@
-# database.py
-
-from app.database.base import Base
+from shared_models.database import Base
 
 __all__ = ["Base"]
