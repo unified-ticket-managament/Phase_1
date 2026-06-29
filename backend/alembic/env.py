@@ -29,39 +29,45 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # -----------------------------------------------------
-# Import Models
+# Import Ticket Models
 # -----------------------------------------------------
 
-from app.models import Base
+from shared_models.database import Base
 
-# Importing the ticket service models registers only the ticket schema
-# with the shared Base metadata. Shared RBAC tables are intentionally
-# excluded from Alembic's target metadata.
 import app.models
 
-# Metadata
-# The service owns only the ticket-related tables in this shared database.
 target_metadata = Base.metadata
+
+# -----------------------------------------------------
+# Ticket Service owns only these tables
+# -----------------------------------------------------
+
+OWNED_TABLES = {
+    "tickets",
+    "interactions",
+    "attachments",
+}
 
 
 def include_object(object, name, type_, reflected, compare_to):
-    """Ignore shared RBAC tables during autogenerate comparisons."""
-    if type_ == "table" and name in {
-        "users",
-        "roles",
-        "permissions",
-        "role_permissions",
-        "audit_logs",
-    }:
-        return False
+    """
+    Alembic autogenerate should consider
+    ONLY ticket service tables.
+    """
+
+    if type_ == "table":
+        return name in OWNED_TABLES
+
     return True
 
 
 # -----------------------------------------------------
-# Offline Migration
+# Offline
 # -----------------------------------------------------
 
+
 def run_migrations_offline():
+
     url = config.get_main_option("sqlalchemy.url")
 
     context.configure(
@@ -79,10 +85,12 @@ def run_migrations_offline():
 
 
 # -----------------------------------------------------
-# Online Migration
+# Online
 # -----------------------------------------------------
 
+
 def run_migrations_online():
+
     connectable = engine_from_config(
         config.get_section(config.config_ini_section),
         prefix="sqlalchemy.",
@@ -90,6 +98,7 @@ def run_migrations_online():
     )
 
     with connectable.connect() as connection:
+
         context.configure(
             connection=connection,
             target_metadata=target_metadata,

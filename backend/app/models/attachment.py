@@ -1,20 +1,21 @@
 import uuid
-from typing import TYPE_CHECKING
+from datetime import datetime, timezone
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import BigInteger, DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from shared_models.database import Base
-from shared_models.mixins import TimestampMixin
+
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .interaction import Interaction
 
 
-class Attachment(TimestampMixin, Base):
+class Attachment(Base):
     """
-    Stores attachments associated with an interaction.
+    Attachment Model
     """
 
     __tablename__ = "attachments"
@@ -31,18 +32,35 @@ class Attachment(TimestampMixin, Base):
         nullable=False,
     )
 
-    file_name: Mapped[str] = mapped_column(
+    filename: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
     )
 
-    file_type: Mapped[str] = mapped_column(
+    mime_type: Mapped[str | None] = mapped_column(
         String(100),
+        nullable=True,
+    )
+
+    size_bytes: Mapped[int | None] = mapped_column(
+        BigInteger,
+        nullable=True,
+    )
+
+    storage_key: Mapped[str] = mapped_column(
+        Text,
         nullable=False,
     )
 
-    file_url: Mapped[str] = mapped_column(
-        String(500),
+    scan_status: Mapped[str] = mapped_column(
+        String(20),
+        default="pending",
+        nullable=False,
+    )
+
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
 
@@ -50,8 +68,3 @@ class Attachment(TimestampMixin, Base):
         "Interaction",
         back_populates="attachments",
     )
-
-    def __repr__(self) -> str:
-        return (
-            f"<Attachment(file_name='{self.file_name}')>"
-        )

@@ -1,10 +1,13 @@
 import uuid
+from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Enum, ForeignKey, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.enums import TicketPriority, TicketStatus
 from shared_models.database import Base
 from shared_models.mixins import TimestampMixin
 
@@ -15,10 +18,7 @@ if TYPE_CHECKING:
 
 class Ticket(TimestampMixin, Base):
     """
-    Ticket model.
-
-    A ticket belongs to one client and is assigned
-    to one staff member.
+    Ticket Model
     """
 
     __tablename__ = "tickets"
@@ -29,18 +29,16 @@ class Ticket(TimestampMixin, Base):
         default=uuid.uuid4,
     )
 
-    # Client (User having Client role)
-    client_user_id: Mapped[uuid.UUID] = mapped_column(
+    client_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("users.id"),
+        ForeignKey("users.user_id"),
         nullable=False,
     )
 
-    # Assigned Staff (User having Staff role)
-    assigned_user_id: Mapped[uuid.UUID] = mapped_column(
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("users.id"),
-        nullable=False,
+        ForeignKey("users.user_id"),
+        nullable=True,
     )
 
     title: Mapped[str] = mapped_column(
@@ -48,43 +46,58 @@ class Ticket(TimestampMixin, Base):
         nullable=False,
     )
 
-    status: Mapped[str] = mapped_column(
-        Enum(
-            "OPEN",
-            "IN_PROGRESS",
-            "WAITING_FOR_CLIENT",
-            "RESOLVED",
-            "CLOSED",
+    ticket_type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    current_status: Mapped[TicketStatus] = mapped_column(
+        SQLEnum(
+            TicketStatus,
             name="ticket_status_enum",
         ),
+        default=TicketStatus.OPEN,
         nullable=False,
-        default="OPEN",
     )
 
-    priority: Mapped[str] = mapped_column(
-        Enum(
-            "LOW",
-            "MEDIUM",
-            "HIGH",
-            "CRITICAL",
+    current_priority: Mapped[TicketPriority] = mapped_column(
+        SQLEnum(
+            TicketPriority,
             name="ticket_priority_enum",
         ),
+        default=TicketPriority.MEDIUM,
         nullable=False,
-        default="MEDIUM",
     )
 
-    # -----------------------------
+    custom_fields: Mapped[dict] = mapped_column(
+        JSONB,
+        default=dict,
+        nullable=False,
+    )
+
+    version: Mapped[int] = mapped_column(
+        Integer,
+        default=1,
+        nullable=False,
+    )
+
+    closed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    # -------------------------------------------------
     # Relationships
-    # -----------------------------
+    # -------------------------------------------------
 
     client: Mapped["User"] = relationship(
         "User",
-        foreign_keys=[client_user_id],
+        foreign_keys=[client_id],
     )
 
-    assigned_user: Mapped["User"] = relationship(
+    agent: Mapped["User | None"] = relationship(
         "User",
-        foreign_keys=[assigned_user_id],
+        foreign_keys=[agent_id],
     )
 
     interactions: Mapped[list["Interaction"]] = relationship(
@@ -93,9 +106,17 @@ class Ticket(TimestampMixin, Base):
         cascade="all, delete-orphan",
     )
 
+    # -------------------------------------------------
+    # Optimistic Locking
+    # -------------------------------------------------
+
+    __mapper_args__ = {
+        "version_id_col": version,
+    }
+
     def __repr__(self) -> str:
         return (
             f"<Ticket(ticket_id={self.ticket_id}, "
             f"title='{self.title}', "
-            f"status='{self.status}')>"
+            f"status='{self.current_status.value}')>"
         )
