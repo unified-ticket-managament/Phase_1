@@ -41,3 +41,25 @@ class InteractionResponse(ORMBase):
     removed_at: datetime | None
     message_id: str | None
     created_at: datetime
+
+
+class HideInteractionRequest(BaseModel):
+    """
+    Request body for hiding (soft-deleting) an interaction.
+    """
+
+    removed_by: UUID | None = None
+
+
+class HideInteractionResponse(ORMBase):
+    """
+    Response returned after an interaction has been
+    hidden (soft-deleted) from the ticket timeline.
+    """
+
+    interaction_id: UUID
+    ticket_id: UUID | None
+    is_visible: bool
+    removed_by: UUID | None
+    removed_at: datetime | None
+    message: str

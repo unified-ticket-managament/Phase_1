@@ -24,3 +24,32 @@ class AttachmentResponse(ORMBase):
     storage_key: str
     scan_status: str
     uploaded_at: datetime
+
+class AttachmentUploadRequest(BaseModel):
+    """
+    Request body for uploading a file to a ticket.
+
+    The interaction is created internally by the
+    AttachmentService, so interaction_id is not
+    accepted here.
+    """
+
+    filename: str = Field(..., min_length=1, max_length=255)
+    mime_type: str | None = Field(default=None, max_length=100)
+    size_bytes: int | None = Field(default=None, ge=0)
+    storage_key: str = Field(..., min_length=1)
+    scan_status: str = Field(default="pending", max_length=20)
+    performed_by: UUID | None = None
+
+
+class AttachmentUploadResponse(BaseModel):
+    """
+    Response returned after a file has been
+    uploaded and recorded on the ticket timeline.
+    """
+
+    interaction_id: UUID
+    attachment_id: UUID
+    ticket_id: UUID
+    filename: str
+    message: str    

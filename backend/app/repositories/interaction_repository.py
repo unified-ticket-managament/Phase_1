@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import select
@@ -126,9 +127,6 @@ class InteractionRepository:
         await self.db.refresh(interaction)
 
         return interaction
-    from sqlalchemy import select
-
-# ...
 
     async def exists_by_message_id(
         self,
@@ -146,3 +144,28 @@ class InteractionRepository:
         )
 
         return result.scalar_one_or_none() is not None
+
+    async def hide(
+        self,
+        interaction: Interaction,
+        removed_by: UUID | None,
+    ) -> Interaction:
+        """
+        Soft-deletes an interaction.
+
+        The interaction row is never removed from the
+        database; it is simply marked as not visible,
+        preserving the full ticket timeline and audit trail.
+        """
+
+        interaction.is_visible = False
+
+        interaction.removed_by = removed_by
+
+        interaction.removed_at = datetime.now(timezone.utc)
+
+        await self.db.flush()
+
+        await self.db.refresh(interaction)
+
+        return interaction
